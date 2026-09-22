@@ -14,7 +14,7 @@ Distributed Inference
 
 ### 1. PyTorch Fundamentals
 
-Starting with this PyTorch refresher (spent too much time writing CUDA C++ kernels):
+Starting with this PyTorch refresher as I've spent most of my time writing CUDA C++ kernels:
 
 * [PyTorch Complete Course](https://www.youtube.com/playlist?list=PLqnslRFeH2UrcDBWF5mfPGpqQDSta6VK4)
 
@@ -75,4 +75,4 @@ Selected papers from the learning material include:
 
 ## Goal
 
-Understand how modern PyTorch workloads scale from **one process and one model** to **large distributed training and inference systems**.
+Understand how modern workloads scale from **one process and one model** to **large distributed training and inference systems**.
