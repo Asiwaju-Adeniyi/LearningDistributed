@@ -7,8 +7,6 @@ A hands-on repository for learning **distributed training and distributed infere
 ```text
 PyTorch
    ↓
-Distributed Systems
-   ↓
 Distributed Training
    ↓
 Distributed Inference
