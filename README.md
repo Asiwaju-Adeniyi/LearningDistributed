@@ -76,3 +76,5 @@ Selected papers from the learning material include:
 ## Goal
 
 Understand how modern workloads scale from **one process and one model** to **large distributed training and inference systems**.
+
+
