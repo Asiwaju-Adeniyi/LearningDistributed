@@ -1,4 +1,4 @@
-# Distributed PyTorch
+# Distributed With PyTorch
 
 A hands-on repository for learning **distributed training and distributed inference with PyTorch**.
 
