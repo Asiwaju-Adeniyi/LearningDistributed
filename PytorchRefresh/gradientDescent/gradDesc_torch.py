@@ -5,7 +5,7 @@ import torch
 X = torch.tensor([1,2,3,4], dtype=torch.float32)
 Y = torch.tensor([2,4,6,8], dtype=torch.float32)
 
-w = 0.0
+w = torch.tensor(0.0, dtype=torch.float32, requires_grad=True)
 
 #model prediction 
 def forward(x) : 
@@ -15,11 +15,6 @@ def forward(x) :
 def loss(y, y_predicted): 
     return((y_predicted-y)**2).mean()
 
-# gradient 
-#MSE = 1/N * (w * x - y)**2
-#dJ/dw = 1/N 2x (w * x - y)\
-def gradient (x,y, y_predicted): 
-    return np.dot(2*x, y_predicted - y).mean()
 
 print(f'prediction before training: f(5) = {forward(5): .3f}')
 
@@ -34,11 +29,13 @@ for epoch in range(n_iters):
     #loss 
     l = loss(Y, y_predicted) 
 
-    #gradients
-    dW = gradient(X, Y, y_predicted)
+    #gradients = backward pass 
+    l.backward() #dl/dw
 
     #update weights
-    w -= learning_rate * dw 
+    with torch.no_grad():
+        w -= learning_rate * w.grad
+        w.grad.zero_()
 
     if epoch % 1 == 0: 
         print(f'epoch {epoch + 1}: w = {w:.3f}, loss = {l:.8}')
