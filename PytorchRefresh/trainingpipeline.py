@@ -10,16 +10,21 @@ import torch.nn as nn
 
 # f = w * x
 # f = 2 * x
-X = torch.tensor([1,2,3,4], dtype=torch.float32)
-Y = torch.tensor([2,4,6,8], dtype=torch.float32)
+X = torch.tensor([[1],[2],[3],[4]], dtype=torch.float32)
+Y = torch.tensor([[2],[4],[6],[8]], dtype=torch.float32)
 
-w = torch.tensor(0.0, dtype=torch.float32, requires_grad=True)
+X_test = torch.tensor([5], dtype=torch.float32)
 
-#model prediction 
-def forward(x) : 
-    return w * x
+n_samples, n_features = X.shape
+print(n_samples, n_features)
 
-print(f'prediction before training: f(5) = {forward(5):.3f}')
+
+in_features = n_features
+out_features = n_features
+
+model = nn.Linear(in_features=1, out_features=1)
+
+print(f'prediction before training: f(5) = {model(X_test).item():.3f}')
 
 #Training
 learning_rate = 0.01
@@ -27,11 +32,11 @@ n_iters = 10
 
 #loss and optimizer
 loss = nn.MSELoss()
-optimizer = torch.optim.SGD([w], lr= learning_rate)
+optimizer = torch.optim.SGD(model.parameters(), lr= learning_rate)
 
 for epoch in range(n_iters): 
     #prediction = forward pass 
-    y_pred = forward(X)
+    y_pred = model(X)
 
     #loss 
     l = loss(Y, y_pred) 
@@ -46,6 +51,7 @@ for epoch in range(n_iters):
     optimizer.zero_grad()
 
     if epoch % 10 == 0: 
-        print(f'epoch {epoch + 1}: w = {w:.3f}, loss = {l:.8}')
+        [w, b] = model.parameters()
+        print(f'epoch {epoch + 1}: w = {w[0][0].item():.3f}, b = {b.item():.3f}, loss = {l:.8f}')
 
-print(f'prediction after training: f(5) = {forward(5):.3f}')
+print(f'prediction after training: f(5) = {model(X_test).item():.3f}')
