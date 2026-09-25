@@ -22,7 +22,18 @@ print(n_samples, n_features)
 in_features = n_features
 out_features = n_features
 
-model = nn.Linear(in_features=1, out_features=1)
+#model = nn.Linear(in_features=1, out_features=1)
+
+class LinearRegression(nn.Module): 
+    def __init__(self, in_features, out_features): 
+        super(LinearRegression, self).__init__()
+        #define layers
+        self.lin = nn.Linear(in_features, out_features)
+
+    def forward(self, x): 
+        return self.lin(x)
+
+model = LinearRegression(in_features=1, out_features=1)
 
 print(f'prediction before training: f(5) = {model(X_test).item():.3f}')
 
