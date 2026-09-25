@@ -12,8 +12,8 @@ def forward(x) :
     return w * x
 
 # loss = MSE
-def loss(y, y_predicted): 
-    return((y_predicted-y)**2).mean()
+def loss(y, y_pred): 
+    return((y_pred-y)**2).mean()
 
 
 print(f'prediction before training: f(5) = {forward(5): .3f}')
@@ -24,10 +24,10 @@ n_iters = 10
 
 for epoch in range(n_iters): 
     #prediction = forward pass 
-    y_pred = forward(x)
+    y_pred = forward(X)
 
     #loss 
-    l = loss(Y, y_predicted) 
+    l = loss(Y, y_pred) 
 
     #gradients = backward pass 
     l.backward() #dl/dw
