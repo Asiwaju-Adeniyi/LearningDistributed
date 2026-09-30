@@ -14,9 +14,10 @@ Distributed Inference
 
 ### 1. PyTorch Fundamentals
 
-Starting with this PyTorch refresher as I've spent most of my time writing CUDA C++ kernels:
+Starting with this PyTorch refresher and Umar Jamil's "Coding a Transformer from scratch on PyTorch, with full explanation, training and inference" tutorial as I've spent most of my time writing CUDA C++ kernels:
 
 * [PyTorch Complete Course](https://www.youtube.com/playlist?list=PLqnslRFeH2UrcDBWF5mfPGpqQDSta6VK4)
+* [Coding a Transformer from scratch on PyTorch, with full explanation, training and inference.] (https://www.youtube.com/watch?v=ISNdQcPhsts&t=17s)
 
 Refreshing tensors, autograd, neural networks, training loops, datasets, optimization, and PyTorch's programming model before moving into distributed workloads.
 
