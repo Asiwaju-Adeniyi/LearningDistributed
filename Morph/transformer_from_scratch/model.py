@@ -35,3 +35,15 @@ class positionalEncoding(nn.Module):
         x + (self.PE[:, :x.shape[1], :]).requires_grad(False)
 
         return self.dropout(x)
+
+
+
+class FeedForward(nn.Module): 
+    def __init(self, FFd: int, modelDim: int, dropout: float) -> None: 
+        super.__init__()
+        self.linear1 = nn.Linear(modelDim, FFd) 
+        self.dropout = nn.Dropout(dropout)
+        self.linear2 = nn.Linear(FFd, modelDim)
+
+    def forward(self, x): 
+        return self.linear2(self.dropout(torch.relu(self.linear1(x))))
