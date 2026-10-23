@@ -65,3 +65,6 @@ class LayerNorm(nn.Module):
         return (self.alpha * x) + self.beta
 
 
+
+class MHA(nn.Module): 
+    

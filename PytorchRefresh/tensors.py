@@ -1,5 +1,8 @@
 import torch 
 import numpy as np
+import pandas as pd 
+import matplotlib.pyplot as plt
+print(torch.__version__)
 
 x = torch.rand(2,2)
 y = torch.rand(2,2)
@@ -22,3 +25,8 @@ if torch.mps.is_available():
     q = q.to(device)
     z = x + y
     print(z)
+
+    scalar = torch.tensor(7)
+    print(scalar.item())
+
+    vector = torch.tensor([7,7])
