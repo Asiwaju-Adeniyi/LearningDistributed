@@ -61,3 +61,10 @@ print(torch.__version__)
 # print(tensor)
 
 
+# Mean, Max, Min, Sum, etc. (Tensor Aggregation)
+
+x = torch.arange(0, 100, 10)
+y = torch.min(x)
+print(y)
+
+print(torch.mean(x.type(torch.float32)))
