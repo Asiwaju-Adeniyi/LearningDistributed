@@ -43,3 +43,21 @@ print(torch.__version__)
 
 ###MatMuls: Two main ways of performing multplication in neural networks and deep learning. 
 
+# tensor = torch.tensor([4,4,4,0])
+# print(tensor, "*", tensor)
+# print(f"Equals: {tensor * tensor}")
+
+# print(torch.matmul(tensor, tensor))
+
+
+# tensor1 = torch.tensor([[1,2,3,5,6,4,5],
+#                          [45,4,50,9,89,3,4], 
+#                          [45,4,50,9,89,3,4]])
+# tensor2 = torch.tensor([[1,2,3,5,6,4,5],
+#                          [45,4,50,9,89,3,4], 
+#                          [45,4,50,9,89,3,4]])
+
+# tensor = tensor1 @ tensor2.permute(1,0)
+# print(tensor)
+
+
