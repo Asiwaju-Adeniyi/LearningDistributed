@@ -1,4 +1,7 @@
 
+import argparse
+from contextlib import nullcontext
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,6 +10,13 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, DistributedSampler
 import torch.optim as optim
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.profiler import (
+    ProfilerActivity,
+    profile,
+    record_function,
+    schedule,
+    tensorboard_trace_handler,
+)
 
 
 class Net(nn.Module):
@@ -29,6 +39,66 @@ class Net(nn.Module):
         x = self.dropout2(x)
         x = self.fc2(x)
         return F.log_softmax(x, dim=1)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="MNIST DDP training with an optional PyTorch profiler run."
+    )
+    parser.add_argument("--epochs", type=int, default=14)
+    parser.add_argument("--batch-size", type=int, default=64)
+
+    # DDP gradient bucket size. Smaller buckets create more all-reduces and
+    # can make the communication/computation overlap easier to see.
+    parser.add_argument("--bucket-cap-mb", type=float, default=25.0)
+
+    # Profiling is opt-in so the default training run is unchanged.
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Capture a short profiler trace for each rank and exit.",
+    )
+    parser.add_argument("--profile-dir", default="profiler_logs")
+    parser.add_argument("--profile-wait", type=int, default=1)
+    parser.add_argument("--profile-warmup", type=int, default=2)
+    parser.add_argument("--profile-active", type=int, default=3)
+
+    args = parser.parse_args()
+
+    if args.profile:
+        if args.profile_wait < 0 or args.profile_warmup < 0:
+            parser.error("--profile-wait and --profile-warmup must be >= 0")
+        if args.profile_active < 1:
+            parser.error("--profile-active must be >= 1")
+
+    return args
+
+
+def build_profiler(args, rank):
+    # This Mac uses gloo/CPU DDP. If the model is later moved to CUDA,
+    # include the CUDA activity as well.
+    activities = [ProfilerActivity.CPU]
+    if torch.cuda.is_available():
+        activities.append(ProfilerActivity.CUDA)
+
+    return profile(
+        activities=activities,
+        schedule=schedule(
+            wait=args.profile_wait,
+            warmup=args.profile_warmup,
+            active=args.profile_active,
+            repeat=1,
+        ),
+        # Each rank writes its own trace into the same directory. TensorBoard
+        # groups these worker traces into one run and enables the Distributed
+        # view when every worker contains communication events.
+        on_trace_ready=tensorboard_trace_handler(
+            args.profile_dir,
+            worker_name=f"rank{rank}",
+        ),
+        record_shapes=True,
+        with_stack=True,
+    )
 
 
 def evaluate(model, test_loader):
@@ -55,11 +125,15 @@ def evaluate(model, test_loader):
 
 
 def main():
+    args = parse_args()
+
     dist.init_process_group(backend="gloo")
 
     try:
+        rank = dist.get_rank()
+
         # 1. Create the model and wrap it with DDP.
-        model = DDP(Net())
+        model = DDP(Net(), bucket_cap_mb=args.bucket_cap_mb)
 
         optimizer = optim.Adadelta(model.parameters(), lr=1.0)
 
@@ -89,39 +163,120 @@ def main():
 
         train_loader = DataLoader(
             train_dataset,
-            batch_size=64,
+            batch_size=args.batch_size,
             sampler=train_sampler,
         )
 
         test_loader = DataLoader(
             test_dataset,
-            batch_size=64,
+            batch_size=args.batch_size,
             sampler=test_sampler,
         )
 
-        # 4. Train.
-        for epoch in range(14):
-            model.train()
-            train_sampler.set_epoch(epoch)
+        # 4. Train. In profile mode, run only one epoch and stop after the
+        # profiler's wait + warmup + active window.
+        epochs = 1 if args.profile else args.epochs
+        profile_steps = (
+            args.profile_wait + args.profile_warmup + args.profile_active
+        )
+        if args.profile and profile_steps > len(train_loader):
+            raise ValueError(
+                f"The profiling window needs {profile_steps} batches, but "
+                f"one epoch only has {len(train_loader)}."
+            )
+        profiler_ctx = (
+            build_profiler(args, rank) if args.profile else nullcontext()
+        )
+        step = 0
 
-            for batch_idx, (data, target) in enumerate(train_loader):
-                optimizer.zero_grad()
+        # Keep both ranks together before the profiling window starts.
+        if args.profile:
+            dist.barrier()
 
-                output = model(data)
-                loss = F.nll_loss(output, target)
+        with profiler_ctx as prof:
+            for epoch in range(epochs):
+                model.train()
+                train_sampler.set_epoch(epoch)
 
-                loss.backward()  # DDP synchronizes gradients.
-                optimizer.step()
+                for batch_idx, (data, target) in enumerate(train_loader):
+                    with record_function("train_step"):
+                        optimizer.zero_grad()
 
-                if batch_idx % 100 == 0 and dist.get_rank() == 0:
+                        with record_function("forward"):
+                            output = model(data)
+
+                        with record_function("loss"):
+                            loss = F.nll_loss(output, target)
+
+                        with record_function("backward"):
+                            # DDP synchronizes gradients here.
+                            loss.backward()
+
+                        with record_function("optimizer_step"):
+                            optimizer.step()
+
+                    # Advance the profiler schedule once per training step.
+                    if prof is not None:
+                        prof.step()
+
+                    step += 1
+
+                    if batch_idx % 100 == 0 and rank == 0:
+                        print(
+                            f"Epoch {epoch + 1}, batch {batch_idx}, "
+                            f"loss={loss.item():.4f}",
+                            flush=True,
+                        )
+
+                    if args.profile and step >= profile_steps:
+                        break
+
+                if args.profile and step >= profile_steps:
+                    break
+
+                # 5. Evaluate after each epoch.
+                evaluate(model, test_loader)
+
+        if args.profile:
+            # Keep both ranks alive until every trace has been written.
+            dist.barrier()
+
+            print(
+                f"\nRank {rank}: profiler trace written under "
+                f"{args.profile_dir}",
+                flush=True,
+            )
+            # Printing the full table from both ranks interleaves the output.
+            # TensorBoard shows the per-rank comparison, so keep the console
+            # table on rank 0 only.
+            averages = prof.key_averages()
+            if rank == 0:
+                print("Rank 0 top ops:", flush=True)
+                print(
+                    averages.table(
+                        sort_by="self_cpu_time_total",
+                        row_limit=15,
+                    ),
+                    flush=True,
+                )
+
+            # The top-15 table is dominated by convolution kernels here, so
+            # print the communication events explicitly. DDP averages
+            # gradients with one all-reduce per bucket.
+            for event in averages:
+                if event.key.startswith(("gloo:", "c10d::")):
                     print(
-                        f"Epoch {epoch + 1}, batch {batch_idx}, "
-                        f"loss={loss.item():.4f}",
+                        f"Rank {rank} {event.key}: calls={event.count}, "
+                        f"self CPU={event.self_cpu_time_total / 1000.0:.2f} ms",
                         flush=True,
                     )
 
-            # 5. Evaluate after each epoch.
-            evaluate(model, test_loader)
+            if rank == 0:
+                print(
+                    f"\nOpen TensorBoard with: "
+                    f"tensorboard --logdir {args.profile_dir}",
+                    flush=True,
+                )
 
     finally:
         dist.destroy_process_group()

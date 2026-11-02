@@ -6,6 +6,7 @@ import torch.distributed as dist
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader, DistributedSampler
 import torch.optim as optim
+from torch.utils.tensorboard import SummaryWriter
 
 
 class Net(nn.Module):
@@ -53,6 +54,13 @@ def main():
     try:
         rank = dist.get_rank()
         world_size = dist.get_world_size()
+
+        writer = None
+
+        if rank == 0:
+         writer = SummaryWriter("runs/mnist")
+
+        
 
         model = Net()
 
