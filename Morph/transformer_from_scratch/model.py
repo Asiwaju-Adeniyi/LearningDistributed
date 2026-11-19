@@ -64,7 +64,15 @@ class LayerNorm(nn.Module):
 
         return (self.alpha * x) + self.beta
 
+class ResidualConnection(nn.Module): 
+    def __init__(self, features: int, dropout: float) -> None: 
+        super().__init__()
+
+        self.norm = LayerNorm(features)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, sublayer): 
+        return x + self.dropout(sublayer(self.norm(x)))
 
 
-class MHA(nn.Module): 
-    
+class MHA(nn.Module):
