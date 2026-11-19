@@ -75,4 +75,11 @@ class ResidualConnection(nn.Module):
         return x + self.dropout(sublayer(self.norm(x)))
 
 
-class MHA(nn.Module):
+class ProjectionLayer(nn.Module):
+    def __init__ (self, d_model: int, vocab_size: int) -> None: 
+        super().__init__()
+
+        self.project = nn.Linear(d_model, vocab_size)
+
+    def forward(self, x): 
+        return self.project(x)
